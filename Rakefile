@@ -31,6 +31,8 @@ task :install => [:submodule_init, :submodules] do
 
   install_term_theme if RUBY_PLATFORM.downcase.include?("darwin")
 
+  run_bundle_config
+
   success_msg("installed")
 end
 
@@ -117,6 +119,27 @@ def run(cmd)
   `#{cmd}` unless ENV['DEBUG']
 end
 
+def number_of_cores
+  if RUBY_PLATFORM.downcase.include?("darwin")
+    cores = run %{ sysctl -n hw.ncpu }
+  else
+    cores = run %{ nproc }
+  end
+  puts
+  cores.to_i
+end
+
+def run_bundle_config
+  return unless system("which bundle")
+
+  bundler_jobs = number_of_cores - 1
+  puts "======================================================"
+  puts "Configuring Bundlers for parallel gem installation"
+  puts "======================================================"
+  run %{ bundle config --global jobs #{bundler_jobs} }
+  puts
+end
+
 def install_rvm_binstubs
   puts "======================================================"
   puts "Installing RVM Bundler support. Never have to type"
@@ -156,7 +179,7 @@ end
 
 def install_fonts
   puts "======================================================"
-  puts "Installing patched fonts for Powerline."
+  puts "Installing patched fonts for Powerline/Lightline."
   puts "======================================================"
   run %{ cp -f $HOME/.yadr/fonts/* $HOME/Library/Fonts }
   puts
@@ -231,12 +254,10 @@ def install_prezto
   puts
   puts "Installing Prezto (ZSH Enhancements)..."
 
-  unless File.exists?(File.join(ENV['ZDOTDIR'] || ENV['HOME'], ".zprezto"))
-    run %{ ln -nfs "$HOME/.yadr/zsh/prezto" "${ZDOTDIR:-$HOME}/.zprezto" }
+  run %{ ln -nfs "$HOME/.yadr/zsh/prezto" "${ZDOTDIR:-$HOME}/.zprezto" }
 
-    # The prezto runcoms are only going to be installed if zprezto has never been installed
-    file_operation(Dir.glob('zsh/prezto/runcoms/z*'), :copy)
-  end
+  # The prezto runcoms are only going to be installed if zprezto has never been installed
+  file_operation(Dir.glob('zsh/prezto/runcoms/z*'), :copy)
 
   puts
   puts "Overriding prezto ~/.zpreztorc with YADR's zpreztorc to enable additional modules..."
